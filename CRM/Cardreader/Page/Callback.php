@@ -41,7 +41,7 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
 
     }
     if (!empty($contactId)) {
-      foreach(array('phones' => 'Phone', 'emails' => 'Email', 'urls' => 'Website', 'addresses' => 'Address') as $type => $entity)  {
+      foreach(array('phones' => 'Phone', 'emails' => 'Email', 'urls' => 'Website', 'addresses' => 'Address', 'ims' => 'Im') as $type => $entity)  {
         if(!empty($this->_data[$type])) {
           foreach($this->_data[$type] as $params) {
             $params['contact_id'] = $contactId;
@@ -71,7 +71,7 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
   }
 
   public function prepareData() {
-    foreach(array('phones', 'emails','urls','addresses') as $type ) {
+    foreach(array('phones', 'emails','urls','addresses', 'ims') as $type ) {
       $data = array();
       if(!empty($this->_data[$type])) {
         foreach($this->_data[$type] as $locType => $datas) {
@@ -110,11 +110,11 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
 
             );
           } elseif($type == 'ims') {
-            list($providerTypeId, $providerType) = $this->getNearestMatch('provider', $locType);
+            list($providerTypeId, $providerType) = $this->getNearestMatch('provider', $datas['service']);
             $data[] = array(
-              'location_type_id' => $locType,
+              'location_type_id' => $locationTypeId,
               'provider_id' => $providerTypeId,
-              'name' => $value,
+              'name' => $datas['user'],
               'is_primary' => '1',
 
             );
@@ -132,7 +132,7 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
               } else if($name == 'zip') {
                 $address['postal_code'] = $val;
               } else if($name == 'state') {
-                //list($address['state_province_id'], ) = $this->getNearestMatch('state_province', $val);
+                list($address['state_province_id'], ) = $this->getNearestMatch('state_province', $val);
               }
             }
             $data[] = $address;
