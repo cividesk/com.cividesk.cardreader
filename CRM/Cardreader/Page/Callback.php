@@ -6,6 +6,8 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
   protected $_data = NULL;
   protected $_defaultLocationType = NULL;
   protected $_pseudoconstants = NULL;
+  protected $_isupdate = false;
+
   function run() {
     $this->_data = $_POST;
     if(empty($this->_data)){
@@ -14,38 +16,56 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
     $this->getOptions();
     $this->prepareData();
     if(!empty($this->_data)){
-      $contact_exist = $this->getContact();
-      if(!$contact_exist){
-        $this->createContact();
-      }
+      $contact_id = $this->getContact();
+      $this->createContact($contact_id);
     }
     parent::run();
   }
 
 
-  function createContact() {
+  function createContact($contact_id = '') {
     $params = array(
       'version' => 3,
       'contact_type' => 'Individual',
       'first_name'   => $this->_data['personFirstName'],
       'last_name'    => $this->_data['personLastName'],
     );
+
     if (!empty($this->_data['emails'])) {
       $params['email'] = reset(reset($this->_data['emails']));
+    }
+
+    if (!empty($this->_data['job'])) {
+      $params['job_title'] =  $this->_data['job'];
+    }
+
+    if (!empty($this->_data['companyName'])) {
+      $params['current_employer'] = $this->_data['companyName'];
+    }
+
+    if (!empty($contact_id)) {
+      $params['id'] = $contact_id;
     }
 
     $newContact = civicrm_api('contact', 'create', $params);
     $contactId = '';
     if ($newContact['is_error'] == 0 && !empty($newContact['values'])) {
       $contactId = reset(reset($newContact['values']));
-
     }
     if (!empty($contactId)) {
       foreach(array('phones' => 'Phone', 'emails' => 'Email', 'urls' => 'Website', 'addresses' => 'Address', 'ims' => 'Im') as $type => $entity)  {
         if(!empty($this->_data[$type])) {
           foreach($this->_data[$type] as $params) {
             $params['contact_id'] = $contactId;
-            $this->wrap_civicrm_api($entity, $params);
+            if($this->_isupdate) {
+              $getPrams = $params;
+              $this->_format_get_params($entity, $getPrams);
+              $id = $this->wrap_civicrm_api($entity, $getPrams, 'get');
+              if(!empty($id)) {
+                $params['id'] = $id;
+              }
+            }
+            $this->wrap_civicrm_api($entity, $params, 'create');
           }
         }
       }
@@ -55,19 +75,21 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
   function getContact(){
     $params = array(
       'version'    => 3,
-      'sequential' => 1,
+      'sequential' => 0,
       'first_name' => $this->_data['personFirstName'],
       'last_name'  => $this->_data['personLastName'],
     );
     if (!empty($this->_data['emails'])) {
       $params['email'] = reset(reset($this->_data['emails']));
     }
-
+    $id = '';
     $getContacts= civicrm_api('Contact', 'get', $params);
     if(!empty($getContacts['values'])) {
-      return true;
+      reset( $getContacts['values'] );
+      $id = key( $getContacts['values'] );
+      $this->_isupdate = true;
     }
-    return false;
+    return $id;
   }
 
   public function prepareData() {
@@ -86,7 +108,12 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
             if(count($phoneInfo) == 2 && !empty($phoneInfo[1])) {
               list($phoneTypeId, $phoneType) = $this->getNearestMatch('phone_type', $phoneInfo[1]);
             } else {
-              list($phoneTypeId, $phoneType) = $this->getNearestMatch('phone_type');
+              $isMatched = preg_grep( '/'.$locType .'/i', array_flip($this->_pseudoconstants['phone_type']));
+              if(!empty($isMatched)) {
+                list($phoneTypeId, $phoneType) = $this->getNearestMatch('phone_type', $locType);
+              } else {
+                list($phoneTypeId, $phoneType) = $this->getNearestMatch('phone_type');
+              }
             }
             
             $data[] = array(
@@ -144,8 +171,9 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
   }
 
 
-  public function wrap_civicrm_api($entity, $params) {
-    $result = civicrm_api3($entity, 'create', $params);
+  public function wrap_civicrm_api($entity, $params, $action = 'create') {
+    $params['sequential'] = 0;
+    $result = civicrm_api3($entity, $action, $params);
     if ($result['is_error']) {
       // if api call failed
       $error = " FAIL: ". $result['error_message'] . "\n";
@@ -269,6 +297,25 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
       }
     }
     return $combinations;
+  }
+  
+  function _format_get_params($entity, &$params) {
+    if ($entity == 'Phone') {
+      unset($params['phone']);
+      unset($params['phone_numeric']);
+    } else if ($entity == 'Email') {
+      unset($params['email']);
+    } else if ($entity == 'Website') {
+      unset($params['url']);
+    } else if ($entity == 'Im') {
+      unset($params['name']);
+    } else if ($entity == 'Address') {
+      unset($params['country_id']);
+      unset($params['street_address']);
+      unset($params['city']);
+      unset($params['postal_code']);
+      unset($params['state_province_id']);
+    }
   }
 
 }
