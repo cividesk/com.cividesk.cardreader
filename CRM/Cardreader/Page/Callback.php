@@ -118,7 +118,7 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
             
             $data[] = array(
               'location_type_id' => $locationTypeId,
-              'phone_type' => $phoneTypeId,
+              'phone_type_id' => $phoneTypeId,
               'phone' => $value,
               'is_primary' => '1',
             );
@@ -300,6 +300,7 @@ class CRM_Cardreader_Page_Callback extends CRM_Core_Page {
   }
   
   function _format_get_params($entity, &$params) {
+    unset($params['is_primary']);
     if ($entity == 'Phone') {
       unset($params['phone']);
       unset($params['phone_numeric']);
