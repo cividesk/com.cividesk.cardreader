@@ -4,6 +4,6 @@
     <path>civicrm/cardreader</path>
     <page_callback>CRM_Cardreader_Page_Callback</page_callback>
     <title>Callback</title>
-    <access_arguments>access CiviCRM</access_arguments>
+    <access_callback>1</access_callback>
   </item>
 </menu>
